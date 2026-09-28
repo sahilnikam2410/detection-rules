@@ -22,7 +22,12 @@ jobs:
           for f in sigma/windows/*.yml; do
             sigma convert -t splunk -p splunk_windows "$f" > "queries/splunk/$(basename "${f%.yml}").spl"
           done
-          git diff --exit-code queries/ || { echo "::error::queries/splunk is stale, regenerate it"; exit 1; }
+          # generic taxonomy (firewall, zeek): no Windows field mapping
+          for f in sigma/network/*.yml; do
+            sigma convert -t splunk --without-pipeline "$f" > "queries/splunk/$(basename "${f%.yml}").spl"
+          done
+          git status --porcelain queries/
+          test -z "$(git status --porcelain queries/)" || { echo "::error::queries/splunk is stale, regenerate it"; exit 1; }
 
   wazuh:
     name: Wazuh rules load in wazuh-analysisd

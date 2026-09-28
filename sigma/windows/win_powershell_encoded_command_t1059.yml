@@ -1,0 +1,35 @@
+title: PowerShell Encoded Command
+id: 7d3c1e52-9a4b-4f6e-8c21-5b0e9f4a2d17
+status: experimental
+description: |
+    PowerShell started with -EncodedCommand (or any accepted prefix of it).
+    Encoding hides the real command from casual review and simple keyword
+    rules, which is why attackers and droppers use it. Draft: not yet run in
+    the lab. Wazuh equivalent: wazuh/drafts/100230_powershell_encoded_command.xml.
+references:
+    - https://attack.mitre.org/techniques/T1059/001/
+author: Sahil Anil Nikam
+date: 2026-09-29
+tags:
+    - attack.execution
+    - attack.t1059.001
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection_img:
+        Image|endswith:
+            - '\powershell.exe'
+            - '\pwsh.exe'
+    selection_flag:
+        CommandLine|contains|windash:
+            - ' -e '
+            - ' -en '
+            - ' -enc '
+            - ' -enco'
+            - ' -encodedcommand '
+    condition: all of selection_*
+falsepositives:
+    - Management and deployment tools (SCCM, Intune, some RMM agents) that pass scripts encoded
+    - Admin scripts written to avoid quoting problems
+level: high

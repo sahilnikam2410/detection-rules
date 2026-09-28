@@ -1,0 +1,20 @@
+<!--
+  T1059.001 PowerShell: encoded command line.
+  Status: DRAFT. Written, loads in wazuh-analysisd, not yet run in the lab.
+
+  Needs Sysmon process creation (event 1) forwarded by the Wazuh agent.
+  PowerShell accepts any prefix of -EncodedCommand (-e, -en, -enc ...) and
+  / as well as - for the switch, so the match covers all of them.
+-->
+<group name="local,sysmon,powershell,">
+  <rule id="100230" level="10">
+    <if_group>sysmon_event1</if_group>
+    <field name="win.eventdata.image" type="pcre2">(?i)\\(powershell|pwsh)\.exe$</field>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)\s[-/](e|en|enc|enco|encod|encode|encoded|encodedc|encodedco|encodedcom|encodedcomm|encodedcomma|encodedcomman|encodedcommand)\s+[A-Za-z0-9+/=]{20,}</field>
+    <description>PowerShell launched with an encoded command</description>
+    <mitre>
+      <id>T1059.001</id>
+    </mitre>
+    <group>execution,powershell,</group>
+  </rule>
+</group>

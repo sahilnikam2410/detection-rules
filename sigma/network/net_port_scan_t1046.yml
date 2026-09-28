@@ -1,0 +1,50 @@
+title: Firewall Denied Connection
+id: 3f8a6b21-c47d-4e09-9b5a-e12d7c6f0a93
+name: net_firewall_denied
+status: experimental
+description: A connection denied by the firewall. Base event for the port-scan correlation; not an alert on its own.
+author: Sahil Anil Nikam
+date: 2026-09-29
+tags:
+    - attack.discovery
+    - attack.t1046
+logsource:
+    category: firewall
+detection:
+    selection:
+        action: deny
+    condition: selection
+falsepositives:
+    - Every blocked packet
+level: informational
+---
+title: Port Scan From a Single Source
+id: a51e0d7c-2b93-4c8f-a6e4-9d07f31b58c2
+status: experimental
+description: |
+    One source hits 15 or more distinct destination ports on the same host
+    inside a minute and is denied: the shape of an Nmap-style scan (T1046).
+    Firewall or Zeek connection logs are the right source, because Sysmon
+    does not log attempts against closed ports. Draft: not yet run in the lab.
+references:
+    - https://attack.mitre.org/techniques/T1046/
+author: Sahil Anil Nikam
+date: 2026-09-29
+tags:
+    - attack.discovery
+    - attack.t1046
+correlation:
+    type: value_count
+    rules:
+        - net_firewall_denied
+    group-by:
+        - src_ip
+        - dst_ip
+    timespan: 1m
+    condition:
+        field: dst_port
+        gte: 15
+falsepositives:
+    - Authorised vulnerability scanners (exclude their source IPs)
+    - Misconfigured monitoring probing many ports
+level: medium
