@@ -1,0 +1,39 @@
+<!--
+  T1110 Brute Force: three-stage chain (failure -> burst -> success after burst).
+  Status: DRAFT. Designed in the Silent Operator project, never observed firing.
+
+  Renumbered from 100210-100212 (as written in the silent-operator README) to
+  100220-100222 so it can be loaded next to the validated rule 100211 without
+  an id collision.
+
+  100222 is the alert worth waking up for: a success straight after a burst of
+  failures from the same source is the difference between knocking and inside.
+-->
+<group name="local,authentication_failures,windows,">
+  <rule id="100220" level="5">
+    <if_sid>60122</if_sid>
+    <description>Windows logon failure</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+  </rule>
+
+  <rule id="100221" level="10" frequency="6" timeframe="120">
+    <if_matched_sid>100220</if_matched_sid>
+    <same_source_ip />
+    <description>Brute force: 6 failed logons from $(srcip) in 120s</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+  </rule>
+
+  <rule id="100222" level="12">
+    <if_sid>60106</if_sid>
+    <if_matched_sid>100221</if_matched_sid>
+    <same_source_ip />
+    <description>Brute force succeeded from $(srcip)</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+  </rule>
+</group>

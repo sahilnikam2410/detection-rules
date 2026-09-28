@@ -1,0 +1,23 @@
+<!--
+  T1110 Brute Force: Windows logon failures from one source.
+  Status: VALIDATED. Fired 2026-09-05 21:39:08 on WIN-SERVER-2022 (Silent Operator lab).
+  Evidence: evidence/bruteforce-100211.png
+
+  Level (12) and base rule (60122) are read off the capture. frequency/timeframe
+  come from lab notes and are a starting point to tune, not a measurement.
+
+  Deploy: append to /var/ossec/etc/rules/local_rules.xml, then
+          systemctl restart wazuh-manager
+-->
+<group name="local,authentication_failures,windows,">
+  <rule id="100211" level="12" frequency="5" timeframe="60">
+    <if_matched_sid>60122</if_matched_sid>
+    <!-- load-bearing: without it, five failures from five different hosts also fire -->
+    <same_source_ip />
+    <description>Brute-force attack detected - multiple Windows logon failures</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+    <group>authentication_failed,brute_force,windows,</group>
+  </rule>
+</group>

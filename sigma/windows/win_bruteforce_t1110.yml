@@ -1,0 +1,100 @@
+title: Windows Logon Failure
+id: 5502a60d-d722-4da7-a04d-968e1ee9d5e2
+name: win_security_logon_failure
+status: experimental
+description: A single failed logon (4625). Base event for the brute-force correlations; too noisy to alert on alone.
+references:
+    - https://github.com/sahilnikam2410/silent-operator
+author: Sahil Anil Nikam
+date: 2026-09-05
+tags:
+    - attack.credential-access
+    - attack.t1110
+logsource:
+    product: windows
+    service: security
+detection:
+    selection:
+        EventID: 4625
+    condition: selection
+falsepositives:
+    - Every mistyped password
+level: low
+---
+title: Windows Logon Success
+id: 0b8edf0a-d511-4bf9-bb18-2061790ec1a6
+name: win_security_logon_success
+status: experimental
+description: A successful logon (4624). Used only as the second stage of the brute-force-then-success correlation.
+author: Sahil Anil Nikam
+date: 2026-09-05
+tags:
+    - attack.credential-access
+    - attack.t1110
+logsource:
+    product: windows
+    service: security
+detection:
+    selection:
+        EventID: 4624
+    condition: selection
+falsepositives:
+    - Normal logons
+level: informational
+---
+title: Windows Brute Force From a Single Source
+id: c21373d3-5e81-499a-b5c2-35321803bf12
+name: win_bruteforce_single_source
+status: experimental
+description: |
+    Five or more failed logons from the same source IP inside 60 seconds.
+    Sigma port of Wazuh rule 100211, which fired in the Silent Operator lab
+    on 2026-09-05. Grouping by IpAddress is the equivalent of same_source_ip.
+references:
+    - https://github.com/sahilnikam2410/silent-operator
+author: Sahil Anil Nikam
+date: 2026-09-05
+tags:
+    - attack.credential-access
+    - attack.t1110
+correlation:
+    type: event_count
+    rules:
+        - win_security_logon_failure
+    group-by:
+        - IpAddress
+    timespan: 60s
+    condition:
+        gte: 5
+falsepositives:
+    - Service accounts with stale cached credentials
+    - Password managers retrying after a password change
+level: high
+---
+title: Windows Brute Force Followed by Successful Logon
+id: e6649363-9523-44d4-bb6a-42c29c7f0548
+name: win_bruteforce_then_success
+status: experimental
+description: |
+    A brute-force burst from one source, then a successful logon from the same
+    source within the same two-minute window. Sigma form of the draft Wazuh
+    chain 100220-100222. Uses temporal (unordered) because the Splunk backend
+    does not support temporal_ordered.
+author: Sahil Anil Nikam
+date: 2026-09-05
+tags:
+    - attack.credential-access
+    - attack.t1110
+    - attack.initial-access
+    - attack.t1078
+correlation:
+    type: temporal
+    rules:
+        - win_bruteforce_single_source
+        - win_security_logon_success
+    group-by:
+        - IpAddress
+    timespan: 2m
+falsepositives:
+    - A user who finally remembers their password
+level: critical

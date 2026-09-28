@@ -1,0 +1,49 @@
+name: validate
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  sigma:
+    name: Sigma lint + Splunk conversion
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install sigma-cli pysigma-backend-splunk
+      - name: Lint (fail on errors and issues)
+        run: sigma check --fail-on-error --fail-on-issues sigma/
+      - name: Convert to Splunk and check committed queries are current
+        run: |
+          for f in sigma/windows/*.yml; do
+            sigma convert -t splunk -p splunk_windows "$f" > "queries/splunk/$(basename "${f%.yml}").spl"
+          done
+          git diff --exit-code queries/ || { echo "::error::queries/splunk is stale, regenerate it"; exit 1; }
+
+  wazuh:
+    name: Wazuh rules load in wazuh-analysisd
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Well-formed XML and unique rule ids
+        run: |
+          python3 - <<'PY'
+          import glob, sys, xml.etree.ElementTree as ET
+          seen = {}
+          for path in sorted(glob.glob("wazuh/**/*.xml", recursive=True)):
+              for rule in ET.parse(path).getroot().iter("rule"):
+                  rid = rule.get("id")
+                  if rid in seen:
+                      sys.exit(f"duplicate rule id {rid}: {seen[rid]} and {path}")
+                  seen[rid] = path
+          print(f"{len(seen)} rules, ids unique: {sorted(seen)}")
+          PY
+      - name: wazuh-analysisd -t
+        run: |
+          docker run --rm -v "$PWD/wazuh:/rules:ro" --entrypoint bash wazuh/wazuh-manager:4.9.2 -c '
+            cat /rules/validated/*.xml /rules/drafts/*.xml > /var/ossec/etc/rules/local_rules.xml &&
+            /var/ossec/bin/wazuh-analysisd -t && echo "analysisd: rules load cleanly"'

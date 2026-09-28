@@ -1,0 +1,20 @@
+source="WinEventLog:Security" EventCode=4625
+
+| bin _time span=60s
+| stats count as event_count by _time IpAddress
+
+| search event_count >= 5
+
+| multisearch
+[ search source="WinEventLog:Security" EventCode=4625
+
+| bin _time span=60s
+| stats count as event_count by _time IpAddress
+
+| search event_count >= 5 | eval event_type="win_bruteforce_single_source" ]
+[ search source="WinEventLog:Security" EventCode=4624 | eval event_type="win_security_logon_success" ]
+
+| bin _time span=2m
+| stats dc(event_type) as event_type_count by _time IpAddress
+
+| search event_type_count >= 2
