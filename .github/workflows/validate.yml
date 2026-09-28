@@ -42,15 +42,23 @@ jobs:
                   seen[rid] = path
           print(f"{len(seen)} rules, ids unique: {sorted(seen)}")
           PY
+      - name: Start wazuh-manager
+        run: |
+          docker run -d --name wazuh -v "$PWD/wazuh:/rules:ro" wazuh/wazuh-manager:4.9.2
+          # the entrypoint populates /var/ossec/etc on first start
+          for i in $(seq 1 60); do
+            docker exec wazuh test -f /var/ossec/etc/internal_options.conf && break
+            sleep 3
+          done
+          docker exec wazuh test -f /var/ossec/etc/internal_options.conf
+
       - name: wazuh-analysisd -t
         run: |
-          docker run --rm -v "$PWD/wazuh:/rules:ro" --entrypoint bash wazuh/wazuh-manager:4.9.2 -c '
-            set -e
-            # The image keeps its default etc/ under data_tmp and copies it in at
-            # container start; the entrypoint is bypassed here, so do it by hand.
-            if [ -d /var/ossec/data_tmp/permanent/var/ossec ]; then
-              cp -a /var/ossec/data_tmp/permanent/var/ossec/. /var/ossec/
-            fi
+          docker exec wazuh bash -c '
             cat /rules/validated/*.xml /rules/drafts/*.xml > /var/ossec/etc/rules/local_rules.xml &&
-            cd /var/ossec && ls etc/internal_options.conf etc/ossec.conf &&
-            ./bin/wazuh-analysisd -t && echo "analysisd: rules load cleanly"'
+            chown wazuh:wazuh /var/ossec/etc/rules/local_rules.xml &&
+            /var/ossec/bin/wazuh-analysisd -t && echo "analysisd: rules load cleanly"'
+
+      - name: Container logs on failure
+        if: failure()
+        run: docker logs wazuh 2>&1 | tail -50
