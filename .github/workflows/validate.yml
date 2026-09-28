@@ -45,5 +45,11 @@ jobs:
       - name: wazuh-analysisd -t
         run: |
           docker run --rm -v "$PWD/wazuh:/rules:ro" --entrypoint bash wazuh/wazuh-manager:4.9.2 -c '
+            set -e
+            # The image keeps its default etc/ under data_tmp and copies it in at
+            # container start; the entrypoint is bypassed here, so do it by hand.
+            if [ -d /var/ossec/data_tmp/permanent/var/ossec ]; then
+              cp -a /var/ossec/data_tmp/permanent/var/ossec/. /var/ossec/
+            fi
             cat /rules/validated/*.xml /rules/drafts/*.xml > /var/ossec/etc/rules/local_rules.xml &&
             /var/ossec/bin/wazuh-analysisd -t && echo "analysisd: rules load cleanly"'
