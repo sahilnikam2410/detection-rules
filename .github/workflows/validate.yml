@@ -49,7 +49,7 @@ jobs:
           PY
       - name: Start wazuh-manager
         run: |
-          docker run -d --name wazuh -v "$PWD/wazuh:/rules:ro" wazuh/wazuh-manager:4.9.2
+          docker run -d --name wazuh -v "$PWD:/repo:ro" wazuh/wazuh-manager:4.9.2
           # the entrypoint populates /var/ossec/etc on first start
           for i in $(seq 1 60); do
             docker exec wazuh test -f /var/ossec/etc/internal_options.conf && break
@@ -57,12 +57,39 @@ jobs:
           done
           docker exec wazuh test -f /var/ossec/etc/internal_options.conf
 
-      - name: wazuh-analysisd -t
+      - name: Installer end-to-end (install, re-run, uninstall, rollback)
         run: |
-          docker exec wazuh bash -c '
-            cat /rules/validated/*.xml /rules/drafts/*.xml > /var/ossec/etc/rules/local_rules.xml &&
-            chown wazuh:wazuh /var/ossec/etc/rules/local_rules.xml &&
-            /var/ossec/bin/wazuh-analysisd -t && echo "analysisd: rules load cleanly"'
+          docker exec -e NO_RESTART=1 wazuh bash -c '
+            set -e
+            R=/var/ossec/etc/rules/local_rules.xml
+            markers() { grep -c "BEGIN sahilnikam2410/detection-rules" "$R" || true; }
+
+            echo "--- install with drafts"
+            bash /repo/scripts/install-wazuh.sh --with-drafts
+            test "$(markers)" = 1
+            for id in 100211 100220 100221 100222 100230; do grep -q "id=\"$id\"" "$R"; done
+
+            echo "--- re-run is idempotent"
+            bash /repo/scripts/install-wazuh.sh --with-drafts
+            test "$(markers)" = 1
+
+            echo "--- validated only"
+            bash /repo/scripts/install-wazuh.sh
+            grep -q "id=\"100211\"" "$R" && ! grep -q "id=\"100230\"" "$R"
+
+            echo "--- uninstall"
+            bash /repo/scripts/install-wazuh.sh --uninstall
+            test "$(markers)" = 0
+
+            echo "--- broken rule is rolled back"
+            cp -r /repo /tmp/broken
+            printf "<group name=\"x,\"><rule id=\"100299\" level=\"3\"><if_sid>NOPE</if_sid></rule>\n" \
+              > /tmp/broken/wazuh/validated/zz_broken.xml
+            before=$(sha256sum "$R")
+            if bash /tmp/broken/scripts/install-wazuh.sh; then echo "broken rule was accepted"; exit 1; fi
+            test "$(sha256sum "$R")" = "$before"
+
+            echo "installer: all checks passed"'
 
       - name: Container logs on failure
         if: failure()

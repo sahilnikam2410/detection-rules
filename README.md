@@ -68,15 +68,23 @@ An alert nobody knows how to triage is just noise. Each playbook in [`playbooks/
 Every push runs [`validate.yml`](.github/workflows/validate.yml):
 
 - **Sigma:** `sigma check --fail-on-issues`, then compile to Splunk SPL and fail if `queries/splunk/` is out of date.
-- **Wazuh:** XML well-formedness, unique rule ids across all files, then all rules loaded into a real `wazuh-manager` container and checked with `wazuh-analysisd -t`.
+- **Wazuh:** XML well-formedness and unique rule ids, then the installer is tested end to end inside a real `wazuh-manager` container: install, idempotent re-run, validated-only, uninstall, and automatic rollback of a deliberately broken rule.
 
 ## Deploy
 
-**Wazuh:** append the rule to `/var/ossec/etc/rules/local_rules.xml` on the manager, then:
+**Wazuh, one command** (on the manager):
 
 ```bash
-sudo /var/ossec/bin/wazuh-analysisd -t && sudo systemctl restart wazuh-manager
+git clone https://github.com/sahilnikam2410/detection-rules.git
+cd detection-rules
+sudo ./scripts/install-wazuh.sh                 # validated rules only
+sudo ./scripts/install-wazuh.sh --with-drafts   # include drafts
+sudo ./scripts/install-wazuh.sh --uninstall     # remove them again
 ```
+
+The installer backs up `local_rules.xml`, puts the rules between marker comments (so re-running replaces rather than duplicates them), checks the result with `wazuh-analysisd -t`, **rolls back automatically if the check fails**, then restarts the manager. CI runs exactly this against a real `wazuh-manager` on every push.
+
+Prefer copy-paste? Every [release](https://github.com/sahilnikam2410/detection-rules/releases/latest) has `detection-rules-validated.xml` and `detection-rules-all.xml` ready to drop into `local_rules.xml`.
 
 **Splunk:** paste the query from [`queries/splunk/`](queries/splunk/) as a saved search/alert.
 
@@ -98,5 +106,7 @@ sigma convert -t splunk -p splunk_windows sigma/windows/win_bruteforce_t1110.yml
 All testing happens on hosts I own, in an isolated lab with no route to the internet or third-party systems.
 
 ---
+
+⭐ **If a rule or playbook here saved you time, a star helps other analysts find it.** Found a false positive or have a detection idea? [Open an issue](https://github.com/sahilnikam2410/detection-rules/issues/new/choose).
 
 Part of my SOC portfolio: **[hackwithsahil.vercel.app](https://hackwithsahil.vercel.app)** · lab write-up in **[silent-operator](https://github.com/sahilnikam2410/silent-operator)**
