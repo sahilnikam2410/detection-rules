@@ -52,4 +52,5 @@ jobs:
               cp -a /var/ossec/data_tmp/permanent/var/ossec/. /var/ossec/
             fi
             cat /rules/validated/*.xml /rules/drafts/*.xml > /var/ossec/etc/rules/local_rules.xml &&
-            /var/ossec/bin/wazuh-analysisd -t && echo "analysisd: rules load cleanly"'
+            cd /var/ossec && ls etc/internal_options.conf etc/ossec.conf &&
+            ./bin/wazuh-analysisd -t && echo "analysisd: rules load cleanly"'
